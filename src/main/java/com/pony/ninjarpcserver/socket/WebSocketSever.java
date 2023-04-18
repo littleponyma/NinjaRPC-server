@@ -1,5 +1,8 @@
 package com.pony.ninjarpcserver.socket;
 
+import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.JSONObject;
+import com.pony.ninjarpcserver.utils.FileUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
@@ -15,14 +18,48 @@ import java.util.concurrent.CopyOnWriteArraySet;
 @Slf4j
 public class WebSocketSever {
 
+    // session集合,存放对应的session
+    private static ConcurrentHashMap<String, Session> sessionPool = new ConcurrentHashMap<>();
+    // concurrent包的线程安全Set,用来存放每个客户端对应的WebSocket对象。
+    private static CopyOnWriteArraySet<WebSocketSever> webSocketSet = new CopyOnWriteArraySet<>();
     // 与某个客户端的连接会话，需要通过它来给客户端发送数据
     private Session session;
 
-    // session集合,存放对应的session
-    private static ConcurrentHashMap<String, Session> sessionPool = new ConcurrentHashMap<>();
+    /**
+     * 推送消息到指定用户
+     *
+     * @param deviceId 用户ID
+     * @param message  发送的消息
+     */
+    public static void sendMessageByDeviceId(String deviceId, String message) {
+        log.info("用户ID：" + deviceId + ",推送内容：" + message);
+        Session session = sessionPool.get(deviceId);
+        try {
+            session.getBasicRemote().sendText(message);
+        } catch (IOException e) {
+            log.error("推送消息到指定用户发生错误：" + e.getMessage(), e);
+        }
+    }
 
-    // concurrent包的线程安全Set,用来存放每个客户端对应的WebSocket对象。
-    private static CopyOnWriteArraySet<WebSocketSever> webSocketSet = new CopyOnWriteArraySet<>();
+    /**
+     * 群发消息
+     *
+     * @param message 发送的消息
+     */
+    public static void sendAllMessage(String message) {
+        log.info("发送消息：{}", message);
+        for (WebSocketSever webSocket : webSocketSet) {
+            try {
+                webSocket.session.getBasicRemote().sendText(message);
+            } catch (IOException e) {
+                log.error("群发消息发生错误：" + e.getMessage(), e);
+            }
+        }
+    }
+
+    public static ConcurrentHashMap<String, Session> getDeviceList() {
+        return sessionPool;
+    }
 
     /**
      * 建立WebSocket连接
@@ -77,37 +114,8 @@ public class WebSocketSever {
     @OnMessage
     public void onMessage(String message) {
         log.info("收到客户端发来的消息：{}", message);
-    }
-
-    /**
-     * 推送消息到指定用户
-     *
-     * @param deviceId  用户ID
-     * @param message 发送的消息
-     */
-    public static void sendMessageByUser(String deviceId, String message) {
-        log.info("用户ID：" + deviceId + ",推送内容：" + message);
-        Session session = sessionPool.get(deviceId);
-        try {
-            session.getBasicRemote().sendText(message);
-        } catch (IOException e) {
-            log.error("推送消息到指定用户发生错误：" + e.getMessage(), e);
-        }
-    }
-
-    /**
-     * 群发消息
-     *
-     * @param message 发送的消息
-     */
-    public static void sendAllMessage(String message) {
-        log.info("发送消息：{}", message);
-        for (WebSocketSever webSocket : webSocketSet) {
-            try {
-                webSocket.session.getBasicRemote().sendText(message);
-            } catch (IOException e) {
-                log.error("群发消息发生错误：" + e.getMessage(), e);
-            }
-        }
+        JSONObject jsonObject = JSON.parseObject(message);
+        String messageId = jsonObject.getString("message_id");
+        FileUtils.saveToFile(messageId, message);
     }
 }
