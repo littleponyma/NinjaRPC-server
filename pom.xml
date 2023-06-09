@@ -41,6 +41,15 @@
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
         </dependency>
+
+        <dependency>
+            <groupId>com.github.zhkl0228</groupId>
+            <artifactId>unidbg</artifactId>
+            <version>0.9.8-SNAPSHOT</version>
+            <scope>system</scope>
+            <systemPath>${project.basedir}/lib/unidbg.jar</systemPath>
+        </dependency>
+
     </dependencies>
     <dependencyManagement>
         <dependencies>
@@ -78,6 +87,9 @@
                         </goals>
                     </execution>
                 </executions>
+                <configuration>
+                    <includeSystemScope>true</includeSystemScope>
+                </configuration>
             </plugin>
         </plugins>
     </build>
